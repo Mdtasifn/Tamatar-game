@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bhag Tamatar Bhag - Funny Mobile Game</title>
+  <meta name="description" content="Funny running game: Tamatar bhag raha hai chaku wale aadmi se!">
+  <meta name="author" content="OpenAI + Tasif Saikh">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background-color: #e0f7fa;
+      font-family: 'Comic Sans MS', cursive;
+      overflow: hidden;
+    }
+
+    #gameArea {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      display: none;
+    }
+
+    #ground {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 80px;
+      background-color: #4caf50;
+    }
+
+    #tomato {
+      position: absolute;
+      bottom: 80px;
+      left: 80px;
+      font-size: 48px;
+    }
+
+    .obstacle {
+      position: absolute;
+      bottom: 80px;
+      font-size: 44px;
+      width: 60px;
+      height: 60px;
+    }
+
+    #message, #score, #levelDisplay, #highScore {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0,0,0,0.5);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 16px;
+    }
+
+    #score { top: 45px; }
+    #levelDisplay { top: 80px; }
+    #highScore { top: 115px; }
+
+    #startScreen, #gameOverScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background-color: #0288d1;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      z-index: 10;
+      text-align: center;
+    }
+
+    button {
+      padding: 14px 30px;
+      font-size: 20px;
+      background-color: #ffeb3b;
+      color: #d32f2f;
+      border: none;
+      border-radius: 8px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    #leaderboard {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Start Screen -->
+<div id="startScreen">
+  <div>🍅 Bhag Tamatar Bhag!</div>
+  <button onclick="startGame()">🎮 Start Game</button>
+</div>
+
+<!-- Game Over Screen -->
+<div id="gameOverScreen" style="display: none;">
+  <div>💀 Game Over! Aadmi ne Tamatar Kat diya!</div>
+  <button onclick="restartGame()">🔁 Restart Game</button>
+  <div id="leaderboard">
+    <h3>🏆 Leaderboard</h3>
+    <ol id="leaderboardList" style="padding-left: 20px; text-align:left;"></ol>
+  </div>
+</div>
+
+<!-- Main Game Area -->
+<div id="gameArea">
+  <div id="tomato">🍅</div>
+  <div id="message">📱 Tap anywhere to jump | ➡️ Move | Aadmi aa raha hai!</div>
+  <div id="score">Score: 0</div>
+  <div id="levelDisplay">Level: 1</div>
+  <div id="highScore">High Score: 0</div>
+  <div id="ground"></div>
+</div>
+
+<!-- Sound Effects -->
+<audio id="jumpSound" src="https://www.soundjay.com/human/sounds/applause-8.mp3"></audio>
+<audio id="gameOverSound" src="https://www.soundjay.com/button/sounds/beep-10.mp3"></audio>
+
+<script>
+  const tomato = document.getElementById("tomato");
+  const message = document.getElementById("message");
+  const scoreDisplay = document.getElementById("score");
+  const levelDisplay = document.getElementById("levelDisplay");
+  const highScoreDisplay = document.getElementById("highScore");
+  const jumpSound = document.getElementById("jumpSound");
+  const gameOverSound = document.getElementById("gameOverSound");
+  const gameArea = document.getElementById("gameArea");
+  const startScreen = document.getElementById("startScreen");
+  const gameOverScreen = document.getElementById("gameOverScreen");
+
+  let isJumping = false;
+  let jumpHeight = 0;
+  let tomatoLeft = 80;
+  let score = 0;
+  let level = 1;
+  let speed = 4;
+  let gameRunning = false;
+  let scoreInterval, obstacleInterval;
+  let highScore = localStorage.getItem("highScore") || 0;
+  highScoreDisplay.innerText = "High Score: " + highScore;
+
+  function updateTomatoPosition() {
+    tomato.style.left = tomatoLeft + "px";
+  }
+
+  function jump() {
+    if (!isJumping && gameRunning) {
+      isJumping = true;
+      jumpSound.play();
+      let up = setInterval(() => {
+        if (jumpHeight >= 100) {
+          clearInterval(up);
+          let down = setInterval(() => {
+            if (jumpHeight <= 0) {
+              clearInterval(down);
+              isJumping = false;
+            } else {
+              jumpHeight -= 4;
+              tomato.style.bottom = (80 + jumpHeight) + "px";
+            }
+          }, 20);
+        } else {
+          jumpHeight += 4;
+          tomato.style.bottom = (80 + jumpHeight) + "px";
+        }
+      }, 20);
+    }
+  }
+
+  function moveLeft() {
+    if (!gameRunning) return;
+    tomatoLeft = Math.max(0, tomatoLeft - 20);
+    updateTomatoPosition();
+  }
+
+  function moveRight() {
+    if (!gameRunning) return;
+    tomatoLeft = Math.min(window.innerWidth - 50, tomatoLeft + 20);
+    updateTomatoPosition();
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!gameRunning) return;
+    if (e.key === "ArrowLeft") moveLeft();
+    else if (e.key === "ArrowRight") moveRight();
+    else if (e.key === "ArrowUp") jump();
+  });
+
+  // ✅ Tap anywhere to jump
+  gameArea.addEventListener("touchstart", () => {
+    if (gameRunning) jump();
+  });
+
+  function createObstacle() {
+    if (!gameRunning) return;
+    const obstacle = document.createElement("div");
+    obstacle.classList.add("obstacle");
+    obstacle.innerText = "🧟‍♂️🔪";
+    let obstacleLeft = window.innerWidth;
+    obstacle.style.left = obstacleLeft + "px";
+    gameArea.appendChild(obstacle);
+
+    const move = setInterval(() => {
+      if (!gameRunning) {
+        clearInterval(move);
+        obstacle.remove();
+        return;
+      }
+
+      obstacleLeft -= speed;
+      obstacle.style.left = obstacleLeft + "px";
+
+      const obstacleRight = obstacleLeft + 60;
+      const tomatoRight = tomatoLeft + 40;
+
+      if (
+        obstacleLeft < tomatoRight &&
+        obstacleRight > tomatoLeft &&
+        jumpHeight < 30
+      ) {
+        clearInterval(move);
+        gameOver();
+      }
+
+      if (obstacleLeft < -60) {
+        clearInterval(move);
+        obstacle.remove();
+      }
+    }, 20);
+  }
+
+  function startGame() {
+    startScreen.style.display = "none";
+    gameArea.style.display = "block";
+    gameOverScreen.style.display = "none";
+    gameRunning = true;
+
+    score = 0;
+    level = 1;
+    speed = 4;
+    tomatoLeft = 80;
+    jumpHeight = 0;
+    updateTomatoPosition();
+    tomato.style.bottom = "80px";
+
+    scoreDisplay.innerText = "Score: 0";
+    levelDisplay.innerText = "Level: 1";
+    highScoreDisplay.innerText = "High Score: " + highScore;
+
+    scoreInterval = setInterval(() => {
+      if (gameRunning) {
+        score++;
+        scoreDisplay.innerText = "Score: " + score;
+
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem("highScore", highScore);
+          highScoreDisplay.innerText = "High Score: " + highScore;
+        }
+
+        if (score % 25 === 0) {
+          level++;
+          levelDisplay.innerText = "Level: " + level;
+          speed += 1;
+        }
+      }
+    }, 1000);
+
+    obstacleInterval = setInterval(createObstacle, 2000);
+  }
+
+  function updateLeaderboard() {
+    let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+    leaderboard.push({ score: score, date: new Date().toLocaleDateString() });
+    leaderboard.sort((a, b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, 5);
+    localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+
+    const list = document.getElementById("leaderboardList");
+    list.innerHTML = "";
+    leaderboard.forEach((entry, index) => {
+      list.innerHTML += `<li>#${index + 1}: ${entry.score} pts - ${entry.date}</li>`;
+    });
+  }
+
+  function gameOver() {
+    gameRunning = false;
+    clearInterval(scoreInterval);
+    clearInterval(obstacleInterval);
+    gameOverSound.play();
+    updateLeaderboard();
+    gameOverScreen.style.display = "flex";
+  }
+
+  function restartGame() {
+    document.querySelectorAll(".obstacle").forEach(el => el.remove());
+    startGame();
+  }
+</script>
+</body>
+</html>
